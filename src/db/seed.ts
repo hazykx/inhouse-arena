@@ -7,9 +7,9 @@
  * Opakované spuštění smaže staré zápasy a demo hráče a vytvoří nové.
  */
 import "dotenv/config";
-import { eq, like, notLike } from "drizzle-orm";
+import { desc, eq, isNull, like, notLike } from "drizzle-orm";
 import { db } from "./index";
-import { lfgPost, lobby, lobbyPlayer, match, matchPlayer, profile, queueEntry, tournament, user, type Role } from "./schema";
+import { season as seasonTable, lfgPost, lobby, lobbyPlayer, match, matchPlayer, profile, queueEntry, tournament, user, type Role } from "./schema";
 
 const DEMO = [
   "Kryštof", "Vlkodlak", "Nerf Pls", "Bára", "Toplane Tom", "Smajlík",
@@ -71,6 +71,10 @@ async function main() {
     .onConflictDoUpdate({ target: profile.userId, set: { mmr: 1500 } });
 
   console.log("⚔️  Generuju zápasy…");
+  // aktuální sezóna (stejně jako lib/season.ts, který tady nejde importovat)
+  const season =
+    (await db.query.season.findFirst({ where: isNull(seasonTable.endedAt), orderBy: desc(seasonTable.id) })) ??
+    (await db.insert(seasonTable).values({ name: "Sezóna 1", startedAt: new Date(0) }).returning())[0];
   const now = Date.now();
   for (let m = 0; m < 40; m++) {
     // skuteční hráči hrají skoro každý zápas, ostatní se střídají
@@ -95,7 +99,7 @@ async function main() {
     const minutes = durationSec / 60;
     const [row] = await db
       .insert(match)
-      .values({ playedAt, durationSec, winner })
+      .values({ playedAt, durationSec, winner, seasonId: season.id })
       .returning({ id: match.id });
 
     const assignRoles = (team: typeof blue) => {

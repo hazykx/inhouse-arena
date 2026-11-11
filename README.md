@@ -67,7 +67,11 @@ Twitch a Kick jsou volitelné. Bez klíčů jsou tlačítka pro propojení jen n
 | **Další testování** | Tlačítko „Doplnit frontu ukázkovými hráči“ doplní skutečnou frontu boty (kapitáni náhodně). Admin může hru zrušit nebo rozhodnout spor. |
 | **Hledám tým** | Inzeráty v databázi: hráč hledá tým, nebo tým hledá hráče. Filtry podle role a typu, kontakt přes Discord profil. Každý hráč má jeden inzerát od každého typu, inzeráty platí 30 dní. |
 | **Turnaje a ligy** | Přidat může každý přihlášený. Stav (registrace, probíhá, ukončeno) se počítá z dat. Admini (`ADMIN_DISCORD_IDS` v `.env`) mohou mazat cizí příspěvky a vybrat doporučený turnaj na banner. |
-| **Admin panel** (`/admin`) | Jen pro adminy (`ADMIN_DISCORD_IDS`). Fronta: vypnout/zapnout, reset (vyprázdní frontu a zruší rozehrané hry), vyhodit hráče, rozhodnout spor. Hráči: pauza ve frontě nebo ban na 24 h / 3 dny / týden / natrvalo s důvodem, zrušení trestu, historie. Inzeráty: mazání. Turnaje: schvalování (turnaje od běžných hráčů se zobrazí až po schválení), doporučení na banner, mazání. |
+| **Riot účty** | Hráč může propojit až 3 LoL účty, první musí být z EUNE. Na profilu se ukazuje rank všech účtů, mastery z hlavního. |
+| **Profil hráče** | Adresa `/hrac/<jméno>` (staré odkazy s ID se přesměrují). Tlačítko „Nahlásit“ pro nahlášení hráče adminům. |
+| **Automatická pauza** | 3× po sobě nepřijatý ready check = 30 minut pauza ve frontě. |
+| **Sezóny** | Žebříček a statistiky se počítají za aktuální sezónu. Admin sezónu ukončí (uloží konečné pořadí) a začne novou s hard/soft resetem MMR. |
+| **Admin panel** (`/admin`) | Jen pro adminy (`ADMIN_DISCORD_IDS`). Fronta: vypnout/zapnout, reset (vyprázdní frontu a zruší rozehrané hry), vyhodit hráče, rozhodnout spor. Hráči: pauza ve frontě nebo ban na 24 h / 3 dny / týden / natrvalo s důvodem, zrušení trestu, historie. Inzeráty: mazání. Turnaje: schvalování (turnaje od běžných hráčů se zobrazí až po schválení), doporučení na banner, mazání. Zápasy: úprava vítěze a statistik, mazání (MMR se přepočítá). Ruční úprava MMR. Reporty od hráčů. Sezóny. Testovací režim (hra s boty, správa botů). Log všech admin akcí. |
 | **Twitch / Kick** | Propojení přes OAuth. Live stav se zjišťuje přes API (app token, cache 1 min). |
 
 ### Struktura

@@ -14,7 +14,6 @@ const STATUS_CS: Record<string, string> = { READY_CHECK: "Ready check", CHOICE: 
 export function QueueRoom({ loggedIn, defaultRole }: { loggedIn: boolean; defaultRole: Role | null }) {
   const { state, act, error, setHidden } = useQueue();
   const [role, setRole] = useState<Role | null>(defaultRole);
-  const [coin, setCoin] = useState<"win" | "lose" | "random">("win");
   const elapsed = useElapsed(state?.me?.joinedAt);
   const q = state?.queue;
   const total = q ? Object.values(q.counts).reduce((a, b) => a + b, 0) : 0;
@@ -108,46 +107,12 @@ export function QueueRoom({ loggedIn, defaultRole }: { loggedIn: boolean; defaul
         </div>
       </div>
 
-      {/* Testovací hra */}
-      {loggedIn && state?.testTools && !state.lobby && (
-        <div className="section">
-          <div className="card panel q-testpanel">
-            <div className="panel-head"><h3>Testovací hra</h3><span className="tag amber">TEST</span></div>
-            <p className="lead" style={{ marginTop: 0 }}>Vyzkoušej si ready check, los mincí a draft jako kapitán. Dalších 9 hráčů jsou boti, výsledek se neukládá do statistik ani MMR.</p>
-            <div className="form-row" style={{ gap: 28, marginTop: 18, alignItems: "flex-start" }}>
-              <div className="field" style={{ flex: "none" }}>
-                <label>TVOJE ROLE (KAPITÁN)</label>
-                <div className="q-role-select" style={{ width: 380 }}>
-                  {ROLES.map((r) => (
-                    <button key={r} className={`q-role-btn ${role === r ? "on" : ""}`} onClick={() => setRole(r)} style={{ padding: "10px 4px" }}>
-                      <RoleSvg role={r} size={24} /><b>{ROLE_CS[r]}</b>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="field" style={{ flex: "none" }}>
-                <label>LOS MINCÍ</label>
-                <div className="tag-picker">
-                  {([["win", "Vyhraju (volím výhodu)"], ["lose", "Prohraju (volím stranu)"], ["random", "Náhodně"]] as const).map(([v, t]) => (
-                    <label key={v}><input type="radio" name="coin" checked={coin === v} onChange={() => setCoin(v)} /><span>{t}</span></label>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <button className="btn btn-primary" style={{ marginTop: 20 }} disabled={!role || !!state.me} onClick={() => role && act({ action: "test", role, coin })}>
-              <Icon name="play" />Spustit testovací hru
-            </button>
-            {state.me && <span className="hint" style={{ marginLeft: 12, fontSize: 12.5, color: "var(--dim)" }}>Nejdřív opusť frontu.</span>}
-          </div>
-        </div>
-      )}
-
       {state?.admin && (
         <div className="section">
           <div className="card panel" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <div><h3 style={{ fontSize: 17 }}>Admin</h3><small style={{ color: "var(--muted)" }}>Vypnutí a reset fronty, rozehrané hry a spory najdeš v admin panelu.</small></div>
+            <div><h3 style={{ fontSize: 17 }}>Admin</h3><small style={{ color: "var(--muted)" }}>Vypnutí a reset fronty, spory a testovací hry najdeš v admin panelu.</small></div>
             <span style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
-              <button className="btn btn-outline btn-sm" onClick={() => act({ action: "bots" })}><Icon name="users" />Doplnit frontu boty (test)</button>
+              <a className="btn btn-outline btn-sm" href="/admin?tab=test"><Icon name="play" />Testovací režim</a>
               <a className="btn btn-primary btn-sm" href="/admin"><Icon name="settings" />Admin panel</a>
             </span>
           </div>

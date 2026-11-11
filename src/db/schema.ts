@@ -83,10 +83,12 @@ export const profile = sqliteTable("profile", {
   mainRole: text("main_role").$type<Role>(),
   secondaryRole: text("secondary_role").$type<Role>(),
   bio: text("bio"),
+  slug: text("slug").unique(), // adresa profilu /hrac/<slug>
+  missedReady: integer("missed_ready").notNull().default(0), // nepřijaté ready checky v řadě
   ...timestamps,
 });
 
-/** Propojený League of Legends účet. Jeden na hráče, ověřený změnou ikony. */
+/** Propojený League of Legends účet. Hráč může mít až 3, aspoň jeden z EUNE. */
 export const riotAccount = sqliteTable(
   "riot_account",
   {
@@ -103,9 +105,10 @@ export const riotAccount = sqliteTable(
     verified: integer("verified", { mode: "boolean" }).notNull().default(false),
     verifyIconId: integer("verify_icon_id"),
     verifiedAt: integer("verified_at", { mode: "timestamp_ms" }),
+    isPrimary: integer("is_primary", { mode: "boolean" }).notNull().default(false),
     ...timestamps,
   },
-  (t) => [uniqueIndex("riot_user_uq").on(t.userId), index("riot_puuid_idx").on(t.puuid)],
+  (t) => [index("riot_user_idx").on(t.userId), uniqueIndex("riot_puuid_uq").on(t.puuid)],
 );
 
 /** Jeden inhouse zápas. */
@@ -115,6 +118,7 @@ export const match = sqliteTable("match", {
   durationSec: integer("duration_sec").notNull(),
   winner: text("winner").$type<"BLUE" | "RED">().notNull(),
   tournamentCode: text("tournament_code"),
+  seasonId: integer("season_id").notNull().default(1),
   ...timestamps,
 });
 
@@ -294,11 +298,86 @@ export const setting = sqliteTable("setting", {
   value: text("value").notNull(),
 });
 
+/* ───────────────────────── Sezóny, MMR, reporty, log ───────────────────────── */
+
+export const season = sqliteTable("season", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
+  endedAt: integer("ended_at", { mode: "timestamp_ms" }),
+  softReset: integer("soft_reset", { mode: "boolean" }).notNull().default(false),
+});
+
+/** Konečné pořadí hráčů v ukončené sezóně */
+export const seasonResult = sqliteTable(
+  "season_result",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    seasonId: integer("season_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    mmr: integer("mmr").notNull(),
+    games: integer("games").notNull(),
+    wins: integer("wins").notNull(),
+  },
+  (t) => [index("sr_season_idx").on(t.seasonId)],
+);
+
+/** Ruční úprava MMR adminem (započítá se i při přepočtu sezóny) */
+export const mmrAdjustment = sqliteTable("mmr_adjustment", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  seasonId: integer("season_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  delta: integer("delta").notNull(),
+  reason: text("reason"),
+  createdBy: text("created_by").notNull(),
+  ...appTimestamps,
+});
+
+export const REPORT_CATEGORIES = ["Toxicita", "AFK / leave", "Griefing / trolling", "Podvádění", "Smurf / cizí účet", "Jiné"] as const;
+
+/** Nahlášení hráče */
+export const report = sqliteTable(
+  "report",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    matchId: integer("match_id"),
+    category: text("category").notNull(),
+    text: text("text").notNull(),
+    status: text("status").$type<"OPEN" | "RESOLVED" | "REJECTED">().notNull().default("OPEN"),
+    note: text("note"),
+    resolvedBy: text("resolved_by"),
+    resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+    ...appTimestamps,
+  },
+  (t) => [index("report_target_idx").on(t.targetId), index("report_status_idx").on(t.status)],
+);
+
+/** Záznam akcí adminů */
+export const adminLog = sqliteTable("admin_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  adminId: text("admin_id").notNull(),
+  action: text("action").notNull(),
+  targetUserId: text("target_user_id"),
+  details: text("details"),
+  ...appTimestamps,
+});
+
 /* ───────────────────────── Relace ───────────────────────── */
 
 export const userRelations = relations(user, ({ one, many }) => ({
   profile: one(profile, { fields: [user.id], references: [profile.userId] }),
-  riotAccount: one(riotAccount, { fields: [user.id], references: [riotAccount.userId] }),
+  riotAccounts: many(riotAccount),
   accounts: many(account),
   matches: many(matchPlayer),
 }));
@@ -322,4 +401,8 @@ export const lfgPostRelations = relations(lfgPost, ({ one }) => ({
 
 export const tournamentRelations = relations(tournament, ({ one }) => ({
   user: one(user, { fields: [tournament.userId], references: [user.id] }),
+}));
+
+export const riotAccountRelations = relations(riotAccount, ({ one }) => ({
+  user: one(user, { fields: [riotAccount.userId], references: [user.id] }),
 }));

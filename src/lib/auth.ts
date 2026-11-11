@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { ensureSlug } from "./slug";
 
 const env = process.env;
 
@@ -53,6 +54,7 @@ export const auth = betterAuth({
         // Každý nový hráč dostane herní profil se startovním MMR
         after: async (u) => {
           await db.insert(schema.profile).values({ userId: u.id }).onConflictDoNothing();
+          await ensureSlug(u.id); // adresa profilu /hrac/<jméno>
         },
       },
     },

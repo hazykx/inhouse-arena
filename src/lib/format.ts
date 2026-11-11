@@ -31,3 +31,6 @@ export const RANK_OPTIONS = ["Unranked", "Iron", "Bronze", "Silver", "Gold", "Pl
 /** Pro <input type="date">: Date → "YYYY-MM-DD" */
 export const toDateInput = (d?: Date | null) => (d ? new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10) : "");
 export const dateCs = (d: Date) => d.toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric", timeZone: "Europe/Prague" });
+
+/** Kolik Riot účtů může mít hráč propojeno */
+export const MAX_RIOT_ACCOUNTS = 3;

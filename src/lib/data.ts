@@ -1,7 +1,9 @@
 import "server-only";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { account, match, matchPlayer, profile, riotAccount, user, type Role } from "@/db/schema";
+import { account, match, matchPlayer, profile, user, type Role } from "@/db/schema";
+import { currentSeason } from "./season";
+import { primaryAccounts, primaryOf } from "./riotAccounts";
 
 export type PlayerRow = typeof matchPlayer.$inferSelect;
 
@@ -46,24 +48,27 @@ export function summarize(rows: GameRow[]) {
 
 export async function getLeaderboard() {
   const players = await db
-    .select({ id: user.id, name: user.name, image: user.image, mmr: profile.mmr, riotName: riotAccount.gameName, riotTag: riotAccount.tagLine })
+    .select({ id: user.id, name: user.name, image: user.image, mmr: profile.mmr, slug: profile.slug })
     .from(profile)
     .innerJoin(user, eq(user.id, profile.userId))
-    .leftJoin(riotAccount, eq(riotAccount.userId, user.id))
     .orderBy(desc(profile.mmr));
 
   const byUser = await gamesByUser();
+  const riot = await primaryAccounts();
 
   return players
-    .map((p) => ({ ...p, ...summarize(byUser.get(p.id) ?? []) }))
+    .map((p) => ({ ...p, riotName: riot.get(p.id)?.gameName ?? null, riotTag: riot.get(p.id)?.tagLine ?? null, ...summarize(byUser.get(p.id) ?? []) }))
     .filter((p) => p.games > 0);
 }
 
+/** Zápasy hráčů v aktuální sezóně */
 async function gamesByUser() {
+  const s = await currentSeason();
   const rows = await db
     .select({ mp: matchPlayer, winner: match.winner, durationSec: match.durationSec })
     .from(matchPlayer)
-    .innerJoin(match, eq(match.id, matchPlayer.matchId));
+    .innerJoin(match, eq(match.id, matchPlayer.matchId))
+    .where(eq(match.seasonId, s.id));
   const byUser = new Map<string, GameRow[]>();
   for (const { mp, winner, durationSec } of rows) {
     const list = byUser.get(mp.userId) ?? [];
@@ -113,7 +118,7 @@ export type MatchWithPlayers = Awaited<ReturnType<typeof getMatches>>[number];
 export async function getPlayer(userId: string) {
   const u = await db.query.user.findFirst({
     where: eq(user.id, userId),
-    with: { profile: true, riotAccount: true, accounts: { columns: { providerId: true, accountId: true } } },
+    with: { profile: true, riotAccounts: true, accounts: { columns: { providerId: true, accountId: true } } },
   });
   if (!u) return null;
 
@@ -121,7 +126,7 @@ export async function getPlayer(userId: string) {
     .select({ mp: matchPlayer, winner: match.winner, playedAt: match.playedAt, durationSec: match.durationSec })
     .from(matchPlayer)
     .innerJoin(match, eq(match.id, matchPlayer.matchId))
-    .where(eq(matchPlayer.userId, userId))
+    .where(and(eq(matchPlayer.userId, userId), eq(match.seasonId, (await currentSeason()).id)))
     .orderBy(match.playedAt);
 
   const games = rows.map((r) => ({ ...r.mp, won: r.mp.team === r.winner, playedAt: r.playedAt, durationSec: r.durationSec }));
@@ -160,6 +165,7 @@ export async function getPlayer(userId: string) {
 
   return {
     user: u,
+    primaryRiot: primaryOf(u.riotAccounts),
     stats,
     inhouseChamps,
     mmrHistory,
@@ -184,9 +190,10 @@ export async function getStreamerAccounts() {
 /* ───────── Přehled ───────── */
 
 export async function getCounts() {
+  const s = await currentSeason();
   const [players, matches] = await Promise.all([
     db.$count(profile),
-    db.$count(match),
+    db.$count(match, eq(match.seasonId, s.id)),
   ]);
   return { players, matches };
 }

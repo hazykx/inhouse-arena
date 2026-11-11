@@ -645,3 +645,14 @@ textarea.input{height:auto;min-height:120px;padding:12px 14px;resize:vertical;li
 .adm-open svg{width:14px;height:14px}
 .adm-player-body{padding:6px 20px 20px;background:#18181e}
 .tabs a .tag{vertical-align:middle}
+.riot-acc{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.riot-acc img,.riot-acc .champ-ph{width:44px;height:44px;border-radius:10px;flex-shrink:0}
+.riot-acc b{font-size:15px}
+.riot-acc .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+.riot-acc .tag,.riot-acc .btn:first-of-type{margin-left:auto}
+.rank-accs{display:flex;flex-direction:column;gap:14px}
+.rank-acc-head{display:flex;align-items:center;gap:8px;font-size:13px;color:#C9C8D2;margin-bottom:10px}
+.rank-acc-head img{width:22px;height:22px;border-radius:6px}
+.edit-table td{padding:8px 10px}
+.edit-table th{padding:10px}
+.input.sm,.select.sm{height:36px;padding:0 10px;font-size:13px}

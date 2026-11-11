@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Icon, type IconName } from "./Icon";
+import { Logo } from "./Logo";
 
 export const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Přehled", icon: "grid" },
@@ -14,7 +15,7 @@ export const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/turnaje", label: "Turnaje a ligy", icon: "trophy" },
 ];
 
-export function Sidebar({ admin = false }: { admin?: boolean }) {
+export function Sidebar({ admin = false, seasonName = "Sezóna 1" }: { admin?: boolean; seasonName?: string }) {
   const path = usePathname();
   useEffect(() => document.body.classList.remove("menu-open"), [path]);
 
@@ -22,11 +23,7 @@ export function Sidebar({ admin = false }: { admin?: boolean }) {
     <>
       <aside className="sidebar">
         <Link className="logo" href="/">
-          <div className="logo-mark">IA</div>
-          <div>
-            <div className="logo-name">inhouse</div>
-            <div className="logo-sub">ARENA</div>
-          </div>
+          <Logo />
         </Link>
         <div className="nav-label">INHOUSE KOMUNITA</div>
         <nav className="nav">
@@ -47,7 +44,7 @@ export function Sidebar({ admin = false }: { admin?: boolean }) {
           )}
         </nav>
         <div className="side-foot">
-          <b>Sezóna 1</b>
+          <b>{seasonName}</b>
           Inhouse hry 5v5 každý večer. Přihlas se přes Discord a začni hrát.
         </div>
       </aside>

@@ -6,6 +6,7 @@ import { Sidebar, MenuButton, Crumb } from "@/components/Sidebar";
 import { LoginButton, UserMenu } from "@/components/AuthButtons";
 import { getSession } from "@/lib/session";
 import { isAdmin } from "@/lib/admin";
+import { currentSeason } from "@/lib/season";
 import { activeSanction, sanctionText } from "@/lib/moderation";
 import { QueueProvider } from "@/components/queue/QueueProvider";
 import { QueueModal } from "@/components/queue/QueueModal";
@@ -32,7 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <IconSprite />
         <QueueProvider enabled={!!session}>
-        <Sidebar admin={admin} />
+        <Sidebar admin={admin} seasonName={(await currentSeason()).name} />
         <div className="main">
           <header className="topbar">
             <MenuButton />

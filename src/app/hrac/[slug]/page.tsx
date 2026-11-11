@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { Art, hashSeed } from "@/components/Art";
 import { Avatar, colorFor, initials } from "@/components/Avatar";
@@ -10,39 +10,51 @@ import { RankBlock } from "@/components/RankBadge";
 import { getCommunityAverages, getMatches, getPlayer } from "@/lib/data";
 import { duration, fmt, ROLE_CS, when } from "@/lib/format";
 import { getSession } from "@/lib/session";
-import { champIcon, getChampions, getLeagueEntries, getTopMasteries, isPlatform, profileIcon, PLATFORMS, type LeagueEntryDto, type MasteryDto } from "@/lib/riot";
+import { champIcon, getChampions, getLeagueEntries, getTopMasteries, isPlatform, profileIcon, PLATFORMS, type LeagueEntryDto, type MasteryDto, type Platform } from "@/lib/riot";
+import { ensureSlug, userIdFromSlug } from "@/lib/slug";
+import { ReportButton } from "./ReportButton";
+import { currentSeason } from "@/lib/season";
 import { getKickChannels, getTwitchChannels, type ChannelStatus } from "@/lib/streams";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
-  const p = await getPlayer(id);
+  const { slug } = await params;
+  const id = await userIdFromSlug(decodeURIComponent(slug));
+  const p = id ? await getPlayer(id) : null;
   return { title: p ? `${p.user.name} – Inhouse Arena` : "Hráč nenalezen" };
 }
 
 export default async function PlayerPage({ params }: Props) {
-  const { id } = await params;
-  const [player, session, champs, avg] = await Promise.all([getPlayer(id), getSession(), getChampions(), getCommunityAverages()]);
+  const raw = decodeURIComponent((await params).slug);
+  const id = await userIdFromSlug(raw);
+  if (!id) notFound();
+  // Starý odkaz s ID → přesměrovat na adresu se jménem
+  const slug = await ensureSlug(id);
+  if (slug && raw !== slug) redirect(`/hrac/${encodeURIComponent(slug)}`);
+  const [player, session, champs, avg, season] = await Promise.all([getPlayer(id), getSession(), getChampions(), getCommunityAverages(), currentSeason()]);
   if (!player) notFound();
 
   const { user: u, stats, inhouseChamps, mmrHistory, streak, position, totalPlayers } = player;
-  const riot = u.riotAccount ?? null;
+  const riot = player.primaryRiot;
+  const accounts = [...u.riotAccounts].sort((a, b) => (a.id === riot?.id ? -1 : b.id === riot?.id ? 1 : a.createdAt.getTime() - b.createdAt.getTime()));
   const isMe = session?.user.id === u.id;
 
   // Riot data – když selžou (chybí klíč, limit…), profil se zobrazí i tak
-  let solo: LeagueEntryDto | undefined, flex: LeagueEntryDto | undefined, masteries: MasteryDto[] = [], riotError: string | null = null;
-  if (riot && isPlatform(riot.platform)) {
-    try {
-      const [entries, mast] = await Promise.all([getLeagueEntries(riot.puuid, riot.platform), getTopMasteries(riot.puuid, riot.platform, 6)]);
-      solo = entries.find((e) => e.queueType === "RANKED_SOLO_5x5");
-      flex = entries.find((e) => e.queueType === "RANKED_FLEX_SR");
-      masteries = mast;
-    } catch (e) {
-      riotError = e instanceof Error ? e.message : "Riot API nedostupné";
-    }
+  // Rank všech propojených účtů, mastery z hlavního
+  let masteries: MasteryDto[] = [], riotError: string | null = null;
+  const ranks: { acc: (typeof accounts)[number]; solo?: LeagueEntryDto; flex?: LeagueEntryDto }[] = [];
+  try {
+    const results = await Promise.all(accounts.filter((a) => isPlatform(a.platform)).map(async (a) => {
+      const entries = await getLeagueEntries(a.puuid, a.platform as Platform);
+      return { acc: a, solo: entries.find((e) => e.queueType === "RANKED_SOLO_5x5"), flex: entries.find((e) => e.queueType === "RANKED_FLEX_SR") };
+    }));
+    ranks.push(...results);
+    if (riot && isPlatform(riot.platform)) masteries = await getTopMasteries(riot.puuid, riot.platform, 6);
+  } catch (e) {
+    riotError = e instanceof Error ? e.message : "Riot API nedostupné";
   }
 
   // Streamy
@@ -103,12 +115,19 @@ export default async function PlayerPage({ params }: Props) {
                 </a>
               ))}
               {isMe && <Link className="btn btn-outline btn-sm" href="/profil"><Icon name="settings" />Upravit propojení</Link>}
+              {session && !isMe && (
+                <ReportButton
+                  targetId={u.id}
+                  name={u.name}
+                  matches={matches.filter((m) => m.players.some((p) => p.userId === session.user.id)).map((m) => ({ id: m.id, label: `Zápas #${m.id} · ${when(m.playedAt)}` }))}
+                />
+              )}
             </div>
           </div>
           <div className="p-head-right">
             <div className="p-kpi"><div className="k">INHOUSE MMR</div><div className="v">{mmr}</div><div className="s">{mmr >= 1500 ? "+" : ""}{mmr - 1500} od startu</div></div>
             <div className="p-kpi"><div className="k">WINRATE</div><div className="v">{stats.winrate} %</div><div className="s">{stats.wins}V / {stats.losses}P</div></div>
-            <div className="p-kpi"><div className="k">ZÁPASY</div><div className="v">{stats.games}</div><div className="s">Sezóna 1</div></div>
+            <div className="p-kpi"><div className="k">ZÁPASY</div><div className="v">{stats.games}</div><div className="s">{season.name}</div></div>
           </div>
         </div>
       </div>
@@ -187,16 +206,26 @@ export default async function PlayerPage({ params }: Props) {
         {/* ── Pravý sloupec ── */}
         <div className="p-col">
           <div className="card panel">
-            <div className="panel-head"><h3>League of Legends rank</h3>{riot && <small>{PLATFORMS[riot.platform as keyof typeof PLATFORMS]?.label}</small>}</div>
+            <div className="panel-head"><h3>League of Legends rank</h3>{accounts.length > 1 && <small>{accounts.length} účty</small>}</div>
             {!riot ? (
               <div className="unranked">{isMe ? <>Propoj svůj LoL účet v <Link href="/profil" style={{ color: "var(--accent)" }}>nastavení</Link> a zobrazí se tu tvůj rank.</> : "Hráč zatím nepropojil LoL účet."}</div>
             ) : riotError ? (
               <div className="msg err">{riotError}</div>
             ) : (
-              <>
-                <RankBlock title="SOLO / DUO" entry={solo} />
-                <div className="rank-split"><RankBlock title="FLEX 5V5" entry={flex} /></div>
-              </>
+              <div className="rank-accs">
+                {ranks.map(({ acc, solo, flex }, i) => (
+                  <div key={acc.id} className={i ? "rank-split" : ""} style={i ? { marginTop: 0 } : undefined}>
+                    <div className="rank-acc-head">
+                      {acc.profileIconId != null && <img src={profileIcon(champs.version, acc.profileIconId)} alt="" />}
+                      <b>{acc.gameName}</b><span style={{ color: "var(--muted)" }}>#{acc.tagLine}</span>
+                      <span className="tag grey">{PLATFORMS[acc.platform as keyof typeof PLATFORMS]?.label}</span>
+                      {i === 0 && accounts.length > 1 && <span className="tag green">HLAVNÍ</span>}
+                    </div>
+                    <RankBlock title="SOLO / DUO" entry={solo} />
+                    <div style={{ marginTop: 14 }}><RankBlock title="FLEX 5V5" entry={flex} /></div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

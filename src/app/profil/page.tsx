@@ -9,6 +9,8 @@ import { enabledProviders } from "@/lib/auth";
 import { getDDVersion, hasRiotKey, PLATFORMS } from "@/lib/riot";
 import { getKickChannels, getTwitchChannels } from "@/lib/streams";
 import { RiotConnection, RolesForm, SocialConnection } from "./Connections";
+import { MAX_RIOT_ACCOUNTS } from "@/lib/format";
+import { primaryOf } from "@/lib/riotAccounts";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +29,7 @@ export default async function ProfileSettings() {
   }
 
   const [me, ddVersion] = await Promise.all([
-    db.query.user.findFirst({ where: eq(user.id, session.user.id), with: { profile: true, riotAccount: true, accounts: { columns: { providerId: true, accountId: true } } } }),
+    db.query.user.findFirst({ where: eq(user.id, session.user.id), with: { profile: true, riotAccounts: true, accounts: { columns: { providerId: true, accountId: true } } } }),
     getDDVersion(),
   ]);
   const twitchAcc = me?.accounts.find((a) => a.providerId === "twitch");
@@ -35,7 +37,11 @@ export default async function ProfileSettings() {
   const [twitch] = twitchAcc ? await getTwitchChannels([twitchAcc.accountId]) : [];
   const [kick] = kickAcc ? await getKickChannels([kickAcc.accountId]) : [];
   const platforms = Object.entries(PLATFORMS).map(([value, p]) => ({ value, label: p.label }));
-  const riot = me?.riotAccount ?? null;
+  const accs = me?.riotAccounts ?? [];
+  const primary = primaryOf(accs);
+  const riotAccounts = accs
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .map((a) => ({ id: a.id, gameName: a.gameName, tagLine: a.tagLine, platform: a.platform, profileIconId: a.profileIconId, summonerLevel: a.summonerLevel, primary: a.id === primary?.id }));
 
   return (
     <section className="view">
@@ -61,10 +67,10 @@ export default async function ProfileSettings() {
         <div className="card conn">
           <div className="conn-top">
             <div className="conn-logo" style={{ background: "var(--hover)", color: "var(--accent)" }}><Icon name="shield" /></div>
-            <div><h3>League of Legends</h3><small>{riot ? `${riot.gameName}#${riot.tagLine}` : "Nepropojeno"}</small></div>
-            <span className={`tag ${riot ? "green" : "grey"}`}>{riot ? "PROPOJENO" : "NEPROPOJENO"}</span>
+            <div><h3>League of Legends</h3><small>{accs.length ? `${accs.length} / ${MAX_RIOT_ACCOUNTS} účtů` : "Nepropojeno"}</small></div>
+            <span className={`tag ${accs.length ? "green" : "grey"}`}>{accs.length ? "PROPOJENO" : "NEPROPOJENO"}</span>
           </div>
-          <RiotConnection riot={riot} ddVersion={ddVersion} platforms={platforms} hasKey={hasRiotKey()} />
+          <RiotConnection accounts={riotAccounts} ddVersion={ddVersion} platforms={platforms} hasKey={hasRiotKey()} max={MAX_RIOT_ACCOUNTS} />
         </div>
 
         <div className="card conn">

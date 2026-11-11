@@ -48,6 +48,12 @@ export async function addSanction(userId: string, type: SanctionType, duration: 
   await db.delete(queueEntry).where(eq(queueEntry.userId, userId));
 }
 
+/** Trest s libovolnou délkou (např. automatická pauza 30 min) */
+export async function addSanctionMs(userId: string, type: SanctionType, ms: number, reason: string, by: string) {
+  await db.insert(sanction).values({ userId, type, reason, createdBy: by, until: new Date(Date.now() + ms) });
+  await db.delete(queueEntry).where(eq(queueEntry.userId, userId));
+}
+
 export async function revokeSanction(id: number) {
   await db.update(sanction).set({ revokedAt: new Date() }).where(eq(sanction.id, id));
 }

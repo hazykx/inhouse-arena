@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { getLeaderboard } from "@/lib/data";
+import { currentSeason } from "@/lib/season";
 import { fmt } from "@/lib/format";
 import { RoleIcon } from "@/components/RoleIcon";
 
@@ -24,7 +25,7 @@ const COLS: { key: string; label: string; title: string; get: (p: Player) => num
 
 export default async function Stats({ searchParams }: { searchParams: Promise<{ sort?: string }> }) {
   const { sort = "mmr" } = await searchParams;
-  const players = await getLeaderboard();
+  const [players, season] = await Promise.all([getLeaderboard(), currentSeason()]);
   const col = COLS.find((c) => c.key === sort) ?? COLS[0];
   const sorted = [...players].sort((a, b) => (col.lowerIsBetter ? col.get(a) - col.get(b) : col.get(b) - col.get(a)));
   const byMmr = [...players].sort((a, b) => b.mmr - a.mmr);
@@ -40,7 +41,7 @@ export default async function Stats({ searchParams }: { searchParams: Promise<{ 
           <h1>Statistiky<span className="dot">.</span></h1>
           <div className="lead">Průměrné statistiky hráčů v aktuální sezóně. Kliknutím na sloupec seřadíš tabulku.</div>
         </div>
-        <div className="chips"><button className="chip on">Sezóna 1</button></div>
+        <div className="chips"><button className="chip on">{season.name}</button></div>
       </div>
 
       {players.length === 0 ? (

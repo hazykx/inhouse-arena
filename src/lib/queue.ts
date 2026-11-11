@@ -4,7 +4,8 @@ import { db } from "@/db";
 import { lobby, lobbyPlayer, match, matchPlayer, profile, queueEntry, riotAccount, ROLES, user, type LobbyStatus, type ResultStats, type Role, type Team } from "@/db/schema";
 import { getChampions } from "./riot";
 import type { RoflData } from "./rofl";
-import { activeSanction, isQueueEnabled, sanctionText } from "./moderation";
+import { activeSanction, addSanctionMs, isQueueEnabled, sanctionText } from "./moderation";
+import { currentSeason } from "./season";
 
 /* ═══════════════════════════════════════════════════════════════
    Fronta a draft
@@ -24,6 +25,8 @@ export const COIN_SECONDS = 4; // animace mince
 export const CHOICE_SECONDS = 25;
 export const PICK_SECONDS = 30;
 const BOT_DELAY = 1500;
+export const MISSED_READY_LIMIT = 3;
+const MISSED_READY_PAUSE_MS = 30 * 60 * 1000;
 
 const ACTIVE: LobbyStatus[] = ["READY_CHECK", "CHOICE", "SIDE", "DRAFT", "IN_GAME", "CONFIRM"];
 const other = (t: Team): Team => (t === "A" ? "B" : "A");
@@ -140,6 +143,18 @@ async function startCaptains({ l, players }: Loaded) {
 async function failReadyCheck({ l, players }: Loaded, kicked: string[]) {
   await setLobby(l.id, { status: "CANCELLED", deadline: null });
   if (l.isTest) return; // testovací hra nikoho do fronty nevrací
+  // 3× po sobě nepřijatý ready check = pauza 30 minut
+  for (const uid of kicked) {
+    if (isBot(uid)) continue;
+    const prof = await db.query.profile.findFirst({ where: eq(profile.userId, uid) });
+    const missed = (prof?.missedReady ?? 0) + 1;
+    if (missed >= MISSED_READY_LIMIT) {
+      await addSanctionMs(uid, "QUEUE", MISSED_READY_PAUSE_MS, `${MISSED_READY_LIMIT}× po sobě nepřijatý ready check`, "system");
+      await db.update(profile).set({ missedReady: 0 }).where(eq(profile.userId, uid));
+    } else {
+      await db.update(profile).set({ missedReady: missed }).where(eq(profile.userId, uid));
+    }
+  }
   const back = players.filter((p) => !kicked.includes(p.userId));
   if (back.length) {
     await db.insert(queueEntry).values(back.map((p) => ({ userId: p.userId, role: p.role, joinedAt: p.joinedAt }))).onConflictDoNothing();
@@ -203,7 +218,7 @@ async function finishMatch(L: Loaded, winnerSide: "BLUE" | "RED", stats?: Result
   const durationSec = stats?.gameLengthSec || Math.max(600, Math.round((now.getTime() - l.phaseStartedAt.getTime()) / 1000));
 
   await db.transaction(async (tx) => {
-    const [m] = await tx.insert(match).values({ playedAt: now, durationSec, winner: winnerSide }).returning({ id: match.id });
+    const [m] = await tx.insert(match).values({ playedAt: now, durationSec, winner: winnerSide, seasonId: (await currentSeason()).id }).returning({ id: match.id });
     for (const p of players) {
       const side = sideOf(p.team!);
       const change = side === "BLUE" ? deltaBlue : -deltaBlue;
@@ -295,6 +310,7 @@ export async function setReady(userId: string, accept: boolean) {
   if (L.l.status !== "READY_CHECK") return;
   if (!accept) return failReadyCheck(L, [userId]);
   await db.update(lobbyPlayer).set({ ready: true }).where(and(eq(lobbyPlayer.lobbyId, L.l.id), eq(lobbyPlayer.userId, userId)));
+  if (!L.l.isTest) await db.update(profile).set({ missedReady: 0 }).where(eq(profile.userId, userId));
   await tick(L.l.id);
 }
 
@@ -326,7 +342,7 @@ export async function pick(userId: string, targetUserId: string) {
 async function matchRoflPlayers(L: Loaded, rofl: RoflData): Promise<ResultStats> {
   const sideOf = (t: Team) => (t === L.l.blueTeam ? "BLUE" : "RED");
   const accounts = await db.select().from(riotAccount).where(inArray(riotAccount.userId, L.players.map((p) => p.userId)));
-  const accOf = new Map(accounts.map((a) => [a.userId, a]));
+  const accsOf = (uid: string) => accounts.filter((a) => a.userId === uid);
   const champs = await getChampions();
   const champId = (skin: string) => [...champs.byId.keys()].find((id) => id.toLowerCase() === skin.toLowerCase()) ?? skin;
 
@@ -338,8 +354,8 @@ async function matchRoflPlayers(L: Loaded, rofl: RoflData): Promise<ResultStats>
   const result: ResultStats = { gameLengthSec: Math.round(rofl.gameLengthMs / 1000), players: {} };
   const assigned = new Map<string, (typeof free)[number]>();
   const steps: ((p: Loaded["players"][number]) => ((r: (typeof free)[number]) => boolean))[] = [
-    (p) => (r) => !!accOf.get(p.userId) && r.puuid === accOf.get(p.userId)!.puuid,
-    (p) => (r) => !!accOf.get(p.userId) && r.gameName.toLowerCase() === accOf.get(p.userId)!.gameName.toLowerCase(),
+    (p) => (r) => accsOf(p.userId).some((a) => r.puuid === a.puuid),
+    (p) => (r) => accsOf(p.userId).some((a) => r.gameName.toLowerCase() === a.gameName.toLowerCase()),
     (p) => (r) => r.side === sideOf(p.team!) && r.position === p.role,
     (p) => (r) => r.side === sideOf(p.team!),
   ];

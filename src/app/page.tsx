@@ -4,12 +4,13 @@ import { Icon } from "@/components/Icon";
 import { LoginButton } from "@/components/AuthButtons";
 import { getCounts, getMatches, getStreamerAccounts } from "@/lib/data";
 import { getSession } from "@/lib/session";
+import { currentSeason } from "@/lib/season";
 import { duration, when } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [session, counts, matches, streamers] = await Promise.all([getSession(), getCounts(), getMatches({ limit: 3 }), getStreamerAccounts()]);
+  const [session, counts, matches, streamers, season] = await Promise.all([getSession(), getCounts(), getMatches({ limit: 3 }), getStreamerAccounts(), currentSeason()]);
 
   return (
     <section className="view">
@@ -41,13 +42,13 @@ export default async function Home() {
             <small>FRONTA · READY CHECK · ELO<br />VŠECHNO NA JEDNOM MÍSTĚ.</small>
           </div>
         </div>
-        <div className="hero-tag"><div>QUEUE UP. PLAY FAIR. CLIMB.</div><small>SEZÓNA 01 / INHOUSE ARENA</small></div>
+        <div className="hero-tag"><div>QUEUE UP. PLAY FAIR. CLIMB.</div><small>{season.name.toUpperCase()} / INHOUSE ARENA</small></div>
       </div>
 
       <div className="section">
         <div className="grid g4">
-          <div className="card stat"><div className="k">REGISTROVANÍ HRÁČI</div><div className="v">{counts.players.toLocaleString("cs-CZ")}</div><div className="s">Sezóna 1</div></div>
-          <div className="card stat"><div className="k">ODEHRANÉ ZÁPASY</div><div className="v">{counts.matches.toLocaleString("cs-CZ")}</div><div className="s">Sezóna 1</div></div>
+          <div className="card stat"><div className="k">REGISTROVANÍ HRÁČI</div><div className="v">{counts.players.toLocaleString("cs-CZ")}</div><div className="s">{season.name}</div></div>
+          <div className="card stat"><div className="k">ODEHRANÉ ZÁPASY</div><div className="v">{counts.matches.toLocaleString("cs-CZ")}</div><div className="s">{season.name}</div></div>
           <div className="card stat"><div className="k">PRÁVĚ VE FRONTĚ</div><div className="v">0 / 10</div><div className="s">Fronta přijde brzy</div></div>
           <div className="card stat"><div className="k">PROPOJENÍ STREAMEŘI</div><div className="v">{new Set(streamers.map((s) => s.userId)).size}</div><div className="s">Twitch a Kick</div></div>
         </div>

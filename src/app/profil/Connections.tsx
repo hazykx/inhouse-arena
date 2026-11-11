@@ -5,7 +5,7 @@ import { authClient } from "@/lib/auth-client";
 import { Icon } from "@/components/Icon";
 import { RolePicker } from "@/components/RolePicker";
 import type { Role } from "@/db/schema";
-import { linkRiot, unlinkRiot, unlinkSocial, updateRoles, type ActionState } from "./actions";
+import { linkRiot, setPrimaryRiot, unlinkRiot, unlinkSocial, updateRoles, type ActionState } from "./actions";
 
 /* ───────── Twitch / Kick ───────── */
 
@@ -60,56 +60,61 @@ export function SocialConnection({ provider, linked, enabled }: { provider: "twi
   );
 }
 
-/* ───────── League of Legends ───────── */
+/* ───────── League of Legends (až 3 účty) ───────── */
 
-type Riot = { gameName: string; tagLine: string; platform: string; profileIconId: number | null; summonerLevel: number | null } | null;
+type RiotAcc = { id: number; gameName: string; tagLine: string; platform: string; profileIconId: number | null; summonerLevel: number | null; primary: boolean };
 
-export function RiotConnection({ riot, ddVersion, platforms, hasKey }: { riot: Riot; ddVersion: string; platforms: { value: string; label: string }[]; hasKey: boolean }) {
+export function RiotConnection({ accounts, ddVersion, platforms, hasKey, max }: { accounts: RiotAcc[]; ddVersion: string; platforms: { value: string; label: string }[]; hasKey: boolean; max: number }) {
   const [state, action, linking] = useActionState<ActionState, FormData>(linkRiot, null);
-  const [unlinking, startUnlink] = useTransition();
-  const [editing, setEditing] = useState(false);
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
   const icon = (id: number) => `https://ddragon.leagueoflegends.com/cdn/${ddVersion}/img/profileicon/${id}.png`;
+  const hasEune = accounts.some((a) => a.platform === "eun1");
+  const label = (p: string) => platforms.find((x) => x.value === p)?.label ?? p;
 
-  // Propojený účet
-  if (riot && !editing) {
-    return (
-      <>
-        <div className="verify-box" style={{ borderStyle: "solid", borderColor: "var(--line)", background: "var(--bg)" }}>
-          {riot.profileIconId != null && <img src={icon(riot.profileIconId)} alt="" />}
-          <div>
-            <b style={{ fontSize: 16 }}>{riot.gameName}<span style={{ color: "var(--muted)" }}>#{riot.tagLine}</span></b>
-            <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>{platforms.find((p) => p.value === riot.platform)?.label} · úroveň {riot.summonerLevel}</div>
-          </div>
-        </div>
-        {state?.message && <div className="msg ok">{state.message}</div>}
-        <div className="conn-actions">
-          <button className="btn btn-outline btn-sm" onClick={() => setEditing(true)}><Icon name="refresh" />Změnit účet</button>
-          <button className="btn btn-ghost btn-sm" disabled={unlinking} onClick={() => startUnlink(() => unlinkRiot())}><Icon name="x" />Odpojit</button>
-        </div>
-      </>
-    );
-  }
-
-  // Formulář pro zadání Riot ID
   return (
-    <form action={async (fd) => { action(fd); setEditing(false); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {!hasKey && <div className="msg err">Chybí RIOT_API_KEY v .env – bez něj propojení nefunguje.</div>}
-      <div className="form-row">
-        <div className="field" style={{ flex: 2 }}>
-          <label htmlFor="riotId">RIOT ID</label>
-          <input className="input" id="riotId" name="riotId" placeholder="Jméno#TAG" defaultValue={riot ? `${riot.gameName}#${riot.tagLine}` : ""} required />
+    <>
+      {accounts.map((a) => (
+        <div key={a.id} className="riot-acc">
+          {a.profileIconId != null ? <img src={icon(a.profileIconId)} alt="" /> : <span className="champ-ph" />}
+          <div style={{ minWidth: 0 }}>
+            <b>{a.gameName}<span style={{ color: "var(--muted)" }}>#{a.tagLine}</span></b>
+            <div className="sub">{label(a.platform)} · úroveň {a.summonerLevel ?? "?"}</div>
+          </div>
+          {a.primary ? <span className="tag green">HLAVNÍ</span> : (
+            <button className="btn btn-ghost btn-sm" disabled={pending} onClick={() => start(() => setPrimaryRiot(a.id))}>Nastavit jako hlavní</button>
+          )}
+          <button className="btn btn-ghost btn-sm" disabled={pending} title="Odpojit" onClick={() => start(async () => { const r = await unlinkRiot(a.id); setErr(r?.error ?? null); })}><Icon name="x" /></button>
         </div>
-        <div className="field">
-          <label htmlFor="platform">SERVER</label>
-          <select className="select" id="platform" name="platform" defaultValue={riot?.platform ?? "eun1"}>
-            {platforms.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
-        <button className="btn btn-primary" disabled={linking || !hasKey}>{linking ? "Hledám…" : "Propojit"}<Icon name="link" /></button>
-      </div>
-      {riot && editing && <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setEditing(false)}>Zrušit</button>}
-      {state?.error && <div className="msg err">{state.error}</div>}
-    </form>
+      ))}
+      {err && <div className="msg err">{err}</div>}
+      {state?.message && <div className="msg ok">{state.message}</div>}
+
+      {accounts.length < max ? (
+        <form action={action} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {!hasKey && <div className="msg err">Chybí RIOT_API_KEY – bez něj propojení nefunguje.</div>}
+          <div className="form-row">
+            <div className="field" style={{ flex: 2 }}>
+              <label htmlFor="riotId">{accounts.length ? "PŘIDAT DALŠÍ ÚČET" : "RIOT ID"}</label>
+              <input className="input" id="riotId" name="riotId" placeholder="Jméno#TAG" required />
+            </div>
+            <div className="field">
+              <label htmlFor="platform">SERVER</label>
+              <select className="select" id="platform" name="platform" defaultValue="eun1" disabled={!hasEune && false}>
+                {platforms.map((p) => <option key={p.value} value={p.value} disabled={!hasEune && p.value !== "eun1"}>{p.label}</option>)}
+              </select>
+            </div>
+            <button className="btn btn-primary" disabled={linking || !hasKey}>{linking ? "Hledám…" : "Propojit"}<Icon name="link" /></button>
+          </div>
+          <div className="hint" style={{ fontSize: 12.5, color: "var(--dim)" }}>
+            {hasEune ? `Můžeš propojit až ${max} účty (zbývá ${max - accounts.length}).` : "První účet musí být z EUNE. Další můžou být z jiných serverů."}
+          </div>
+          {state?.error && <div className="msg err">{state.error}</div>}
+        </form>
+      ) : (
+        <div className="hint" style={{ fontSize: 12.5, color: "var(--dim)" }}>Máš propojený maximální počet účtů ({max}).</div>
+      )}
+    </>
   );
 }
 
