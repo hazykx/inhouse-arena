@@ -38,6 +38,16 @@ export function QueueRoom({ loggedIn, defaultRole }: { loggedIn: boolean; defaul
               <b>Pro hraní se přihlas</b>
               <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}><LoginButton callbackURL="/fronta" /></div>
             </div>
+          ) : state?.sanction ? (
+            <div className="empty" style={{ padding: 20 }}>
+              <b style={{ color: "var(--loss)" }}>{state.sanction.type === "BAN" ? "Máš ban" : "Máš pauzu ve frontě"}</b>
+              {state.sanction.text}
+            </div>
+          ) : state && !state.queueEnabled && !state.lobby ? (
+            <div className="empty" style={{ padding: 20 }}>
+              <b>Fronta je teď vypnutá</b>
+              Admin frontu dočasně vypnul. Zkus to později.
+            </div>
           ) : state?.lobby ? (
             <div className="q-center" style={{ padding: "10px 0" }}>
               <div className="eyebrow" style={{ justifyContent: "center" }}>JSI VE HŘE</div>
@@ -132,35 +142,14 @@ export function QueueRoom({ loggedIn, defaultRole }: { loggedIn: boolean; defaul
         </div>
       )}
 
-      {/* Admin */}
       {state?.admin && (
         <div className="section">
-          <div className="card panel">
-            <div className="panel-head"><h3>Admin</h3><small>Viditelné jen pro adminy</small></div>
-            <div className="conn-actions" style={{ marginBottom: 16 }}>
-              <button className="btn btn-outline btn-sm" onClick={() => act({ action: "bots" })}><Icon name="users" />Doplnit frontu ukázkovými hráči (test)</button>
-              <span className="hint" style={{ fontSize: 12.5, color: "var(--dim)" }}>Boti přijmou ready check, volí a draftují sami. Zařaď se nejdřív sám.</span>
-            </div>
-            {state.adminLobbies.length === 0 ? (
-              <div className="unranked">Žádné rozehrané hry.</div>
-            ) : (
-              state.adminLobbies.map((l) => (
-                <div key={l.id} className="q-admin-row">
-                  <b>Hra #{l.id}</b>
-                  <span className={`tag ${l.disputed ? "red" : "grey"}`}>{l.disputed ? "SPOR" : STATUS_CS[l.status]}</span>
-                  <small>{l.players.join(", ")}</small>
-                  <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                    {(l.status === "IN_GAME" || l.status === "CONFIRM") && (
-                      <>
-                        <button className="btn btn-ghost btn-sm" onClick={() => act({ action: "resolve", lobbyId: l.id, winner: "BLUE" })}>Vyhrál BLUE</button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => act({ action: "resolve", lobbyId: l.id, winner: "RED" })}>Vyhrál RED</button>
-                      </>
-                    )}
-                    <button className="btn btn-danger btn-sm" onClick={() => act({ action: "cancel", lobbyId: l.id })}>Zrušit</button>
-                  </span>
-                </div>
-              ))
-            )}
+          <div className="card panel" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <div><h3 style={{ fontSize: 17 }}>Admin</h3><small style={{ color: "var(--muted)" }}>Vypnutí a reset fronty, rozehrané hry a spory najdeš v admin panelu.</small></div>
+            <span style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+              <button className="btn btn-outline btn-sm" onClick={() => act({ action: "bots" })}><Icon name="users" />Doplnit frontu boty (test)</button>
+              <a className="btn btn-primary btn-sm" href="/admin"><Icon name="settings" />Admin panel</a>
+            </span>
           </div>
         </div>
       )}

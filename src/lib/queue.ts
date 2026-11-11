@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { lobby, lobbyPlayer, match, matchPlayer, profile, queueEntry, riotAccount, ROLES, user, type LobbyStatus, type ResultStats, type Role, type Team } from "@/db/schema";
 import { getChampions } from "./riot";
 import type { RoflData } from "./rofl";
+import { activeSanction, isQueueEnabled, sanctionText } from "./moderation";
 
 /* ═══════════════════════════════════════════════════════════════
    Fronta a draft
@@ -45,6 +46,9 @@ export async function activeLobbyOf(userId: string) {
 
 export async function joinQueue(userId: string, role: Role) {
   if (!ROLES.includes(role)) throw new QueueError("Neznámá role.");
+  if (!(await isQueueEnabled())) throw new QueueError("Fronta je teď vypnutá adminem.");
+  const ban = await activeSanction(userId);
+  if (ban) throw new QueueError(sanctionText(ban));
   if (await activeLobbyOf(userId)) throw new QueueError("Už jsi v rozehrané hře.");
   await db
     .insert(queueEntry)
@@ -542,10 +546,18 @@ export async function getQueueState(userId: string | null) {
     me: me ? { role: me.role, joinedAt: me.joinedAt.getTime() } : null,
     lobby: lobbyState,
     timings: { READY_SECONDS, COIN_SECONDS, CHOICE_SECONDS, PICK_SECONDS },
+    queueEnabled: await isQueueEnabled(),
+    sanction: userId ? await activeSanction(userId).then((s) => (s ? { type: s.type, text: sanctionText(s) } : null)) : null,
   };
 }
 
 export type QueueState = Awaited<ReturnType<typeof getQueueState>>;
+
+/** Admin: vyprázdní frontu a zruší všechny rozehrané hry (před ukončením zápasu) */
+export async function resetQueue() {
+  await db.delete(queueEntry);
+  await db.update(lobby).set({ status: "CANCELLED", deadline: null }).where(inArray(lobby.status, ACTIVE));
+}
 
 /** Přehled rozehraných her pro admina */
 export async function listActiveLobbies() {

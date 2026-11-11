@@ -10,23 +10,25 @@ import { getSession } from "@/lib/session";
 import { isAdmin } from "@/lib/admin";
 import { dateRange, tourStatus } from "@/lib/tournament";
 import { dateCs } from "@/lib/format";
-import { deleteTournament, toggleFeatured } from "./actions";
+import { approveTournament, deleteTournament, toggleFeatured } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const ORDER = { live: 0, open: 1, closed: 2, soon: 3, ended: 4 };
 
-export default async function Tournaments({ searchParams }: { searchParams: Promise<{ typ?: string }> }) {
-  const { typ } = await searchParams;
+export default async function Tournaments({ searchParams }: { searchParams: Promise<{ typ?: string; odeslano?: string }> }) {
+  const { typ, odeslano } = await searchParams;
   const session = await getSession();
   const admin = await isAdmin(session?.user.id);
 
   const rows = await db.query.tournament.findMany({ orderBy: desc(tournament.startsAt) });
+  // Neschválené vidí jen admin a autor
   const all = rows
+    .filter((t) => t.approved || admin || t.userId === session?.user.id)
     .map((t) => ({ ...t, status: tourStatus(t) }))
     .sort((a, b) => ORDER[a.status.key] - ORDER[b.status.key] || (a.status.key === "ended" ? b.startsAt.getTime() - a.startsAt.getTime() : a.startsAt.getTime() - b.startsAt.getTime()));
   const list = all.filter((t) => !typ || t.kind === (typ === "ligy" ? "LIGA" : "TURNAJ"));
-  const featured = all.find((t) => t.featured && t.status.key !== "ended");
+  const featured = all.find((t) => t.featured && t.approved && t.status.key !== "ended");
 
   const hues = (s: string): [number, number, number] => { const h = hashSeed(s) % 360; return [h, (h + 40) % 360, (h + 300) % 360]; };
 
@@ -40,6 +42,12 @@ export default async function Tournaments({ searchParams }: { searchParams: Prom
         </div>
         <Link className="btn btn-primary" href="/turnaje/novy"><Icon name="plus" />Přidat turnaj</Link>
       </div>
+
+      {odeslano && (
+        <div className="banner-warn" style={{ background: "rgba(111,211,168,.08)", borderColor: "rgba(111,211,168,.3)", color: "var(--win)" }}>
+          Díky! Turnaj byl odeslán a zobrazí se všem, jakmile ho schválí admin.
+        </div>
+      )}
 
       {featured && (
         <div className="card feature">
@@ -79,7 +87,7 @@ export default async function Tournaments({ searchParams }: { searchParams: Prom
                 <div className="card tour hov" key={t.id}>
                   <div className="banner">
                     <div style={{ position: "absolute", inset: 0, overflow: "hidden", opacity: t.status.key === "ended" ? 0.45 : 1 }}><Art seed={hashSeed(t.name)} hues={hues(t.name)} /></div>
-                    <span className={`tag ${t.status.color}`}>{t.status.label}</span>
+                    <span className={`tag ${t.approved ? t.status.color : "amber"}`}>{t.approved ? t.status.label : "ČEKÁ NA SCHVÁLENÍ"}</span>
                     {t.featured && <span className="tag amber" style={{ position: "absolute", left: "auto", right: 14, top: 14 }}>★ DOPORUČENO</span>}
                     <div className="org" style={{ background: colorFor(t.organizer) }}>{initials(t.organizer)}</div>
                   </div>
@@ -102,7 +110,10 @@ export default async function Tournaments({ searchParams }: { searchParams: Prom
                       ) : (
                         <span className="btn btn-outline btn-sm" style={{ flex: 1, justifyContent: "center", opacity: 0.5 }}>Bez odkazu</span>
                       )}
-                      {admin && (
+                      {admin && !t.approved && (
+                        <form action={approveTournament.bind(null, t.id)}><button className="btn btn-primary btn-sm"><Icon name="check" />Schválit</button></form>
+                      )}
+                      {admin && t.approved && (
                         <form action={toggleFeatured.bind(null, t.id)}><button className="btn btn-ghost btn-sm" title="Doporučit na hlavní banner">{t.featured ? "★ Zrušit" : "☆ Doporučit"}</button></form>
                       )}
                       {(mine || admin) && <DeleteButton action={deleteTournament.bind(null, t.id)} />}

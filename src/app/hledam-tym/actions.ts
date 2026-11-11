@@ -6,12 +6,15 @@ import { db } from "@/db";
 import { LFG_TAGS, lfgPost, ROLES, type Role } from "@/db/schema";
 import { getSession } from "@/lib/session";
 import { isAdmin } from "@/lib/admin";
+import { activeSanction, sanctionText } from "@/lib/moderation";
 
 export type FormState = { error?: string } | null;
 
 export async function createLfgPost(_: FormState, form: FormData): Promise<FormState> {
   const s = await getSession();
   if (!s) return { error: "Pro přidání inzerátu se přihlas." };
+  const ban = await activeSanction(s.user.id, ["BAN"]);
+  if (ban) return { error: sanctionText(ban) };
 
   const kind = form.get("kind") === "TEAM" ? "TEAM" : "PLAYER";
   const teamName = String(form.get("teamName") ?? "").trim().slice(0, 60);

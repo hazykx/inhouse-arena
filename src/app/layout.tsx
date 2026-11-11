@@ -5,6 +5,8 @@ import { IconSprite, Icon } from "@/components/Icon";
 import { Sidebar, MenuButton, Crumb } from "@/components/Sidebar";
 import { LoginButton, UserMenu } from "@/components/AuthButtons";
 import { getSession } from "@/lib/session";
+import { isAdmin } from "@/lib/admin";
+import { activeSanction, sanctionText } from "@/lib/moderation";
 import { QueueProvider } from "@/components/queue/QueueProvider";
 import { QueueModal } from "@/components/queue/QueueModal";
 import { QueuePill } from "@/components/queue/QueuePill";
@@ -16,6 +18,8 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
+  const admin = await isAdmin(session?.user.id);
+  const ban = session ? await activeSanction(session.user.id, ["BAN"]) : null;
 
   return (
     <html lang="cs">
@@ -28,7 +32,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <IconSprite />
         <QueueProvider enabled={!!session}>
-        <Sidebar />
+        <Sidebar admin={admin} />
         <div className="main">
           <header className="topbar">
             <MenuButton />
@@ -46,7 +50,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {session ? <UserMenu id={session.user.id} name={session.user.name} image={session.user.image} /> : <LoginButton />}
             </div>
           </header>
-          <main className="page">{children}</main>
+          <main className="page">
+            {ban && (
+              <div className="banner-warn" style={{ background: "rgba(240,122,134,.08)", borderColor: "rgba(240,122,134,.3)", color: "var(--loss)" }}>
+                <Icon name="info" style={{ flexShrink: 0 }} />
+                <span>{sanctionText(ban)} Do té doby nemůžeš hrát ve frontě ani přidávat inzeráty a turnaje.</span>
+              </div>
+            )}
+            {children}
+          </main>
         </div>
         <QueueModal />
         <QueuePill />

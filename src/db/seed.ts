@@ -154,13 +154,14 @@ async function main() {
     { userId: "demo-3", kind: "TEAM", teamName: "Ostrava Drakes", rank: "Gold – Plat", roles: ["ADC", "TOP"], tags: ["Clash", "Inhouse"], text: "Chill tým na Clash a inhouse, hlavně ať je sranda.", createdAt: h(28) },
   ]);
   const d = (days: number) => new Date(now + days * 86400000);
+  const approved = true;
   await db.insert(tournament).values([
-    { userId: "demo-1", name: "Inhouse Arena Cup #1", organizer: "Inhouse Arena", kind: "TURNAJ", startsAt: d(30), endsAt: d(31), registrationUntil: d(25), format: "5v5 · Double elim · Bo3", prize: "Trofej + merch", capacity: "16 / 32 týmů", url: "https://example.com", description: "Náš první komunitní turnaj pro týmy z inhouse ligy. Finále se streamem a komentátory.", featured: true },
-    { userId: "demo-2", name: "CZ/SK Amateur League", organizer: "Komunitní liga", kind: "LIGA", startsAt: d(55), endsAt: d(140), registrationUntil: d(45), format: "5v5 · Bo1 liga", prize: "Ceny od partnerů", capacity: "24 / 40 týmů", url: "https://example.com" },
-    { userId: "demo-3", name: "Winter Clash Open", organizer: "Esport klub", kind: "TURNAJ", startsAt: d(9), registrationUntil: d(7), format: "Single elim · Bo1", prize: "Herní periferie", capacity: "12 / 16 týmů", url: "https://example.com" },
-    { userId: "demo-4", name: "Univerzitní liga", organizer: "Studentský spolek", kind: "LIGA", startsAt: d(-40), endsAt: d(35), format: "Skupiny + playoff", prize: "Trofej + merch", capacity: "16 týmů" },
-    { userId: "demo-5", name: "ARAM Fun Cup", organizer: "Komunita Discord", kind: "TURNAJ", startsAt: d(80), format: "5v5 ARAM · Bo3", prize: "Discord role", capacity: "32 týmů", description: "Odpočinkový turnaj v ARAMu, přihlásit se může kdokoliv." },
-    { userId: "demo-6", name: "Podzimní LAN turnaj", organizer: "Gaming festival", kind: "TURNAJ", startsAt: d(-14), endsAt: d(-13), format: "LAN · Bo3", prize: "Vítěz: Praha Wolves", capacity: "32 týmů", url: "https://example.com" },
+    { approved, userId: "demo-1", name: "Inhouse Arena Cup #1", organizer: "Inhouse Arena", kind: "TURNAJ", startsAt: d(30), endsAt: d(31), registrationUntil: d(25), format: "5v5 · Double elim · Bo3", prize: "Trofej + merch", capacity: "16 / 32 týmů", url: "https://example.com", description: "Náš první komunitní turnaj pro týmy z inhouse ligy. Finále se streamem a komentátory.", featured: true },
+    { approved, userId: "demo-2", name: "CZ/SK Amateur League", organizer: "Komunitní liga", kind: "LIGA", startsAt: d(55), endsAt: d(140), registrationUntil: d(45), format: "5v5 · Bo1 liga", prize: "Ceny od partnerů", capacity: "24 / 40 týmů", url: "https://example.com" },
+    { approved, userId: "demo-3", name: "Winter Clash Open", organizer: "Esport klub", kind: "TURNAJ", startsAt: d(9), registrationUntil: d(7), format: "Single elim · Bo1", prize: "Herní periferie", capacity: "12 / 16 týmů", url: "https://example.com" },
+    { approved, userId: "demo-4", name: "Univerzitní liga", organizer: "Studentský spolek", kind: "LIGA", startsAt: d(-40), endsAt: d(35), format: "Skupiny + playoff", prize: "Trofej + merch", capacity: "16 týmů" },
+    { approved, userId: "demo-5", name: "ARAM Fun Cup", organizer: "Komunita Discord", kind: "TURNAJ", startsAt: d(80), format: "5v5 ARAM · Bo3", prize: "Discord role", capacity: "32 týmů", description: "Odpočinkový turnaj v ARAMu, přihlásit se může kdokoliv." },
+    { approved, userId: "demo-6", name: "Podzimní LAN turnaj", organizer: "Gaming festival", kind: "TURNAJ", startsAt: d(-14), endsAt: d(-13), format: "LAN · Bo3", prize: "Vítěz: Praha Wolves", capacity: "32 týmů", url: "https://example.com" },
   ]);
 
   console.log("✅ Hotovo! Spusť npm run dev a otevři http://localhost:3000");

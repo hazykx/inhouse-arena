@@ -195,6 +195,7 @@ export const tournament = sqliteTable("tournament", {
   url: text("url"),
   description: text("description"),
   featured: integer("featured", { mode: "boolean" }).notNull().default(false),
+  approved: integer("approved", { mode: "boolean" }).notNull().default(false), // zobrazí se všem až po schválení adminem
   ...appTimestamps,
 });
 
@@ -265,6 +266,33 @@ export const lobbyPlayer = sqliteTable(
   },
   (t) => [index("lp_lobby_idx").on(t.lobbyId), index("lp_user_idx").on(t.userId)],
 );
+
+/* ───────────────────────── Moderace ───────────────────────── */
+
+/** Trest hráče: BAN = nemůže hrát ani přidávat obsah, QUEUE = pauza ve frontě.
+ *  until = null → permanentní. */
+export const sanction = sqliteTable(
+  "sanction",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: text("type").$type<"BAN" | "QUEUE">().notNull(),
+    until: integer("until", { mode: "timestamp_ms" }),
+    reason: text("reason"),
+    createdBy: text("created_by").notNull(),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+    ...appTimestamps,
+  },
+  (t) => [index("sanction_user_idx").on(t.userId)],
+);
+
+/** Nastavení webu (klíč → hodnota), např. queueEnabled */
+export const setting = sqliteTable("setting", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
 
 /* ───────────────────────── Relace ───────────────────────── */
 

@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { tournament } from "@/db/schema";
 import { getSession } from "@/lib/session";
 import { isAdmin } from "@/lib/admin";
+import { activeSanction, sanctionText } from "@/lib/moderation";
 
 export type FormState = { error?: string } | null;
 
@@ -20,6 +21,8 @@ const date = (f: FormData, k: string) => {
 export async function createTournament(_: FormState, form: FormData): Promise<FormState> {
   const s = await getSession();
   if (!s) return { error: "Pro přidání turnaje se přihlas." };
+  const ban = await activeSanction(s.user.id, ["BAN"]);
+  if (ban) return { error: sanctionText(ban) };
 
   const name = str(form, "name", 80);
   const organizer = str(form, "organizer", 60);
@@ -46,10 +49,11 @@ export async function createTournament(_: FormState, form: FormData): Promise<Fo
     endsAt, registrationUntil,
     prize: prize || null, capacity: capacity || null, url: url || null, description: description || null,
     featured: admin && form.get("featured") === "on",
+    approved: admin, // turnaj od admina je schválený hned, ostatní čekají
   });
 
   revalidatePath("/turnaje");
-  redirect("/turnaje");
+  redirect(admin ? "/turnaje" : "/turnaje?odeslano=1");
 }
 
 export async function deleteTournament(id: number) {
@@ -60,6 +64,14 @@ export async function deleteTournament(id: number) {
   if (t.userId !== s.user.id && !(await isAdmin(s.user.id))) return;
   await db.delete(tournament).where(eq(tournament.id, id));
   revalidatePath("/turnaje");
+}
+
+export async function approveTournament(id: number) {
+  const s = await getSession();
+  if (!s || !(await isAdmin(s.user.id))) return;
+  await db.update(tournament).set({ approved: true }).where(eq(tournament.id, id));
+  revalidatePath("/turnaje");
+  revalidatePath("/admin");
 }
 
 export async function toggleFeatured(id: number) {

@@ -67,6 +67,7 @@ Twitch a Kick jsou volitelné. Bez klíčů jsou tlačítka pro propojení jen n
 | **Další testování** | Tlačítko „Doplnit frontu ukázkovými hráči“ doplní skutečnou frontu boty (kapitáni náhodně). Admin může hru zrušit nebo rozhodnout spor. |
 | **Hledám tým** | Inzeráty v databázi: hráč hledá tým, nebo tým hledá hráče. Filtry podle role a typu, kontakt přes Discord profil. Každý hráč má jeden inzerát od každého typu, inzeráty platí 30 dní. |
 | **Turnaje a ligy** | Přidat může každý přihlášený. Stav (registrace, probíhá, ukončeno) se počítá z dat. Admini (`ADMIN_DISCORD_IDS` v `.env`) mohou mazat cizí příspěvky a vybrat doporučený turnaj na banner. |
+| **Admin panel** (`/admin`) | Jen pro adminy (`ADMIN_DISCORD_IDS`). Fronta: vypnout/zapnout, reset (vyprázdní frontu a zruší rozehrané hry), vyhodit hráče, rozhodnout spor. Hráči: pauza ve frontě nebo ban na 24 h / 3 dny / týden / natrvalo s důvodem, zrušení trestu, historie. Inzeráty: mazání. Turnaje: schvalování (turnaje od běžných hráčů se zobrazí až po schválení), doporučení na banner, mazání. |
 | **Twitch / Kick** | Propojení přes OAuth. Live stav se zjišťuje přes API (app token, cache 1 min). |
 
 ### Struktura

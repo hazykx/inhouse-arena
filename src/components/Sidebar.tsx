@@ -14,7 +14,7 @@ export const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/turnaje", label: "Turnaje a ligy", icon: "trophy" },
 ];
 
-export function Sidebar() {
+export function Sidebar({ admin = false }: { admin?: boolean }) {
   const path = usePathname();
   useEffect(() => document.body.classList.remove("menu-open"), [path]);
 
@@ -39,6 +39,12 @@ export function Sidebar() {
               </Link>
             );
           })}
+          {admin && (
+            <Link href="/admin" className={path.startsWith("/admin") ? "active" : ""}>
+              <Icon name="settings" />
+              Admin
+            </Link>
+          )}
         </nav>
         <div className="side-foot">
           <b>Sezóna 1</b>
@@ -61,6 +67,6 @@ export function MenuButton() {
 export function Crumb() {
   const path = usePathname();
   const label =
-    path.startsWith("/hrac") ? "Profil hráče" : path.startsWith("/profil") ? "Můj profil" : path.startsWith("/chyba") ? "Chyba přihlášení" : NAV.find((n) => (n.href === "/" ? path === "/" : path.startsWith(n.href)))?.label ?? "";
+    path.startsWith("/admin") ? "Admin panel" : path.startsWith("/hrac") ? "Profil hráče" : path.startsWith("/profil") ? "Můj profil" : path.startsWith("/chyba") ? "Chyba přihlášení" : NAV.find((n) => (n.href === "/" ? path === "/" : path.startsWith(n.href)))?.label ?? "";
   return <span className="cur">{label}</span>;
 }
